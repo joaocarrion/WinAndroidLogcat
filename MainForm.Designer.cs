@@ -34,7 +34,7 @@
       panel1 = new Panel();
       filterText = new TextBox();
       label3 = new Label();
-      button1 = new Button();
+      btRefresh = new Button();
       cbTag = new ComboBox();
       label2 = new Label();
       btPause = new Button();
@@ -81,7 +81,7 @@
       panel1.BorderStyle = BorderStyle.FixedSingle;
       panel1.Controls.Add(filterText);
       panel1.Controls.Add(label3);
-      panel1.Controls.Add(button1);
+      panel1.Controls.Add(btRefresh);
       panel1.Controls.Add(cbTag);
       panel1.Controls.Add(label2);
       panel1.Controls.Add(btPause);
@@ -112,15 +112,16 @@
       label3.TabIndex = 7;
       label3.Text = "Filter";
       // 
-      // button1
+      // btRefresh
       // 
-      button1.Font = new Font("Wingdings 3", 9.75F, FontStyle.Bold, GraphicsUnit.Point);
-      button1.Location = new Point(438, 6);
-      button1.Name = "button1";
-      button1.Size = new Size(32, 32);
-      button1.TabIndex = 6;
-      button1.Text = "Q";
-      button1.UseVisualStyleBackColor = true;
+      btRefresh.Font = new Font("Wingdings 3", 9.75F, FontStyle.Bold, GraphicsUnit.Point);
+      btRefresh.Location = new Point(438, 6);
+      btRefresh.Name = "btRefresh";
+      btRefresh.Size = new Size(32, 32);
+      btRefresh.TabIndex = 6;
+      btRefresh.Text = "Q";
+      btRefresh.UseVisualStyleBackColor = true;
+      btRefresh.Click += btRefresh_Click;
       // 
       // cbTag
       // 
@@ -190,6 +191,7 @@
       // 
       // cbProcesses
       // 
+      cbProcesses.DropDownStyle = ComboBoxStyle.DropDownList;
       cbProcesses.FormattingEnabled = true;
       cbProcesses.Location = new Point(67, 12);
       cbProcesses.Name = "cbProcesses";
@@ -260,6 +262,6 @@
     private ToolStripMenuItem copyToolStripMenuItem;
     private TextBox filterText;
     private Label label3;
-    private Button button1;
+    private Button btRefresh;
   }
 }

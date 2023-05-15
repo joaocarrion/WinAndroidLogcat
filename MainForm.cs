@@ -11,6 +11,17 @@ namespace AndroidLogcat
     private const string tagProperty = "tag";
     private SettingsForm? settingsForm;
 
+    private bool paused = false;
+    private readonly SemaphoreSlim pauseSem = new SemaphoreSlim(0);
+    private readonly SemaphoreSlim tagSelectionChanged = new SemaphoreSlim(0);
+    private readonly SemaphoreSlim filterTextChanged = new SemaphoreSlim(0);
+    private readonly SemaphoreSlim processTerminated = new SemaphoreSlim(0);
+
+    private List<ADBLogReader.LogLine> lines = new();
+    private HashSet<string> tags = new();
+    private ADBLogReader.LogLine? selectedLine;
+    private ADBLogReader? logReader;
+
     private SettingsForm SettingsForm
     {
       get {
@@ -49,50 +60,18 @@ namespace AndroidLogcat
       var p = cbProcesses.SelectedItem as ADBProcess;
       if (p != null) {
         Settings.Instance.SetProperty(currentProcessProperty, p.name);
+        TerminateSession();
         LogProcess(p);
       }
     }
 
     private void LogProcess(ADBProcess process)
     {
-      var reader = ADB.Instance.LogProcess(process);
-      listView.SuspendLayout();
-
-      if (reader != null) {
-        _ = Task.Run(() => ProcessLog(reader));
+      logReader = ADB.Instance.LogProcess(process);
+      if (logReader != null) {
+        _ = Task.Run(() => ProcessLog(logReader));
       }
-
-      _ = Task.Run(async () => {
-        await Task.Delay(10000);
-        //Invoke(() => listView.ResumeLayout());
-      });
     }
-
-    public class LogColors
-    {
-      private static LogColors? instance;
-      private Dictionary<ADBLogReader.LogLine.Type, Color> colors = new() {
-        { ADBLogReader.LogLine.Type.Info, Color.Black },
-        { ADBLogReader.LogLine.Type.Debug, Color.FromArgb(255, 20, 20, 20) },
-        { ADBLogReader.LogLine.Type.Warning, Color.DarkGoldenrod},
-        { ADBLogReader.LogLine.Type.Error, Color.Red },
-        { ADBLogReader.LogLine.Type.Other, Color.DarkMagenta},
-      };
-
-      public static LogColors Instance => instance ??= new LogColors();
-
-      private LogColors() { }
-
-      public Color this[ADBLogReader.LogLine.Type type] => colors[type];
-    }
-
-    private bool paused = false;
-    private readonly SemaphoreSlim pauseSem = new SemaphoreSlim(0);
-    private readonly SemaphoreSlim tagSelectionChanged = new SemaphoreSlim(0);
-    private readonly SemaphoreSlim filterTextChanged = new SemaphoreSlim(0);
-    private List<ADBLogReader.LogLine> lines = new();
-    private HashSet<string> tags = new();
-    private ADBLogReader.LogLine? selectedLine;
 
     private async void ProcessLog(ADBLogReader reader)
     {
@@ -154,8 +133,11 @@ namespace AndroidLogcat
         if (paused) {
           pauseSem.Wait();
         }
+
         line = await reader.Next();
       }
+
+      processTerminated.Release();
     }
 
     private void btPause_Click(object sender, EventArgs e)
@@ -177,12 +159,8 @@ namespace AndroidLogcat
 
       await Task.Delay(200);
 
-      SuspendLayout();
-
       listView.Items.Clear();
       AddFilteredLines();
-
-      ResumeLayout();
 
       tagSelectionChanged.Release();
       btPause_Click(sender, e);
@@ -237,19 +215,11 @@ namespace AndroidLogcat
       if (!paused)
         btPause_Click(sender, e);
 
-      SuspendLayout();
-
       listView.Items.Clear();
       AddFilteredLines();
 
-      ResumeLayout();
-
       filterTextChanged.Release();
       btPause_Click(sender, e);
-    }
-
-    private void filterText_KeyUp(object sender, KeyEventArgs e)
-    {
     }
 
     private void filterText_KeyUp(object sender, KeyPressEventArgs e)
@@ -257,6 +227,46 @@ namespace AndroidLogcat
       if (e.KeyChar == '\r') {
         filter_TextOutOfFocus(sender, e);
         e.Handled = true;
+      }
+    }
+
+    private void btRefresh_Click(object sender, EventArgs e)
+    {
+      TerminateSession();
+
+      lines.Clear();
+      listView.Items.Clear();
+
+      RefreshProcesses();
+    }
+
+    private void TerminateSession()
+    {
+      if (logReader != null) {
+        logReader.Close();
+        logReader = null;
+
+        processTerminated.Wait();
+      }
+    }
+
+    private void RefreshProcesses()
+    {
+      var processes = ADBProcess.GetProcesses();
+      var current = cbProcesses.SelectedItem as ADBProcess;
+
+      cbProcesses.Items.Clear();
+      cbProcesses.Items.AddRange(processes.Cast<object>().ToArray());
+      cbProcesses.SelectedIndex = -1;
+
+      if (current != null) {
+        var pl = processes.FindIndex(proc => proc.name == current.name);
+        if (pl >= 0)
+          cbProcesses.SelectedIndex = pl;
+      } else {
+        var pl = processes.FindIndex(proc => proc.name == Settings.Instance.GetProperty(currentProcessProperty) as string);
+        if (pl >= 0)
+          cbProcesses.SelectedIndex = pl;
       }
     }
   }

@@ -95,7 +95,7 @@
     {
       var exec = ADB_Process("logcat");
       if (exec.Start()) {
-        return new ADBLogReader(exec.StandardOutput, process);
+        return new ADBLogReader(exec, process);
       } else {
         return null;
       }
